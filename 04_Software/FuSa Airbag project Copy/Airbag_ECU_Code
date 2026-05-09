@@ -1,0 +1,109 @@
+const int accSensor = A0;
+const int gyroSensor = A1;
+const int pressureSensor = A2;
+
+const int babySeatPin = 2;
+
+const int driverAirbag = 8;
+const int passengerAirbag = 9;
+const int warningLamp = 13;
+
+const int ACC_THRESHOLD = 700;
+const int GYRO_THRESHOLD = 600;
+const int PRESSURE_THRESHOLD = 650;
+
+void setup() {
+
+  Serial.begin(9600);
+
+  pinMode(driverAirbag, OUTPUT);
+  pinMode(passengerAirbag, OUTPUT);
+  pinMode(warningLamp, OUTPUT);
+
+  pinMode(babySeatPin, INPUT_PULLUP);
+
+  digitalWrite(driverAirbag, LOW);
+  digitalWrite(passengerAirbag, LOW);
+  digitalWrite(warningLamp, LOW);
+
+  Serial.println("Airbag ECU Simulation Started");
+}
+
+void loop() {
+
+  int accValue = analogRead(accSensor);
+  int gyroValue = analogRead(gyroSensor);
+  int pressureValue = analogRead(pressureSensor);
+
+  bool babySeatDetected =
+  (digitalRead(babySeatPin) == LOW);
+
+  bool frontalCrash =
+    accValue >= ACC_THRESHOLD;
+
+  bool sideCrash =
+    pressureValue >= PRESSURE_THRESHOLD;
+
+  bool safingCondition =
+    gyroValue >= GYRO_THRESHOLD;
+
+  // Reset outputs
+  digitalWrite(driverAirbag, LOW);
+  digitalWrite(passengerAirbag, LOW);
+  digitalWrite(warningLamp, LOW);
+
+  Serial.println("------------------------------");
+
+  Serial.print("ACC=");
+  Serial.print(accValue);
+
+  Serial.print(" | GYRO=");
+  Serial.print(gyroValue);
+
+  Serial.print(" | PRESSURE=");
+  Serial.print(pressureValue);
+
+  Serial.print(" | BABY=");
+  Serial.println(babySeatDetected ? "YES" : "NO");
+
+  // Crash condition
+  if ((frontalCrash || sideCrash) && safingCondition) {
+
+    digitalWrite(driverAirbag, HIGH);
+
+    if (babySeatDetected) {
+
+      digitalWrite(passengerAirbag, LOW);
+
+      Serial.println("SCENARIO: VALID CRASH + BABY SEAT");
+      Serial.println("Driver Airbag ON");
+      Serial.println("Passenger Airbag SUPPRESSED");
+    }
+    else {
+
+      digitalWrite(passengerAirbag, HIGH);
+
+      Serial.println("SCENARIO: VALID CRASH");
+      Serial.println("Driver Airbag ON");
+      Serial.println("Passenger Airbag ON");
+    }
+  }
+  else {
+
+    Serial.println("SCENARIO: NORMAL / NO VALID CRASH");
+    Serial.println("Driver Airbag OFF");
+    Serial.println("Passenger Airbag OFF");
+
+    // Warning / Fault logic
+    if(accValue > 950 ||
+       gyroValue > 950 ||
+       pressureValue > 950) {
+
+      digitalWrite(warningLamp, HIGH);
+
+      Serial.println("WARNING: SENSOR VALUE TOO HIGH");
+    }
+  }
+
+  delay(1000);
+}
